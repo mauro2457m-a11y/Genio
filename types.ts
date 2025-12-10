@@ -33,3 +33,15 @@ export interface WizardState {
   isLoading: boolean;
   error: string | null;
 }
+
+// Global type augmentation for AI Studio
+declare global {
+  interface AIStudio {
+    hasSelectedApiKey: () => Promise<boolean>;
+    openSelectKey: () => Promise<void>;
+  }
+
+  interface Window {
+    aistudio?: AIStudio;
+  }
+}

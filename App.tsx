@@ -7,7 +7,7 @@ import GenerationProgress from './components/GenerationProgress';
 import FinalResult from './components/FinalResult';
 import { AppStep, ContentType, ProjectData, WizardState } from './types';
 import { generateStructure, generateChapterContent, generateCoverImage } from './services/geminiService';
-import { BookOpen, MonitorPlay, Wand2, Star } from 'lucide-react';
+import { BookOpen, MonitorPlay, Wand2, Star, AlertTriangle } from 'lucide-react';
 
 export default function App() {
   const [wizardState, setWizardState] = useState<WizardState>({
@@ -26,6 +26,28 @@ export default function App() {
       isLoading: false, 
       error: "Ocorreu um erro ao comunicar com a IA. Verifique sua chave API ou tente novamente." 
     }));
+  };
+
+  // Helper to check/request API Key
+  const checkApiKey = async (): Promise<boolean> => {
+    if (window.aistudio && window.aistudio.openSelectKey) {
+      try {
+        const hasKey = await window.aistudio.hasSelectedApiKey();
+        if (!hasKey) {
+          await window.aistudio.openSelectKey();
+          // We assume success if openSelectKey resolves without throwing
+          return true;
+        }
+        return true;
+      } catch (e) {
+        console.error("Error checking API key:", e);
+        // If selection failed or was cancelled, we might still try, 
+        // but high quality models will likely fail.
+        return false;
+      }
+    }
+    // If not in the specific AI Studio environment, assume env vars are set
+    return true;
   };
 
   // Step 1: Start Project
@@ -48,6 +70,9 @@ export default function App() {
     setWizardState({ ...wizardState, isLoading: true, error: null });
     
     try {
+      // Ensure we have a key before calling any model
+      await checkApiKey();
+
       const result = await generateStructure(data.topic, data.audience, data.tone, projectData.type);
       
       setProjectData({
@@ -66,6 +91,14 @@ export default function App() {
   // Step 3: Confirm Outline & Start Full Generation
   const handleOutlineConfirm = async () => {
     if (!projectData) return;
+    
+    // Ensure API key is selected specifically for the high-quality image model
+    const keyReady = await checkApiKey();
+    if (!keyReady) {
+      setWizardState(prev => ({ ...prev, error: "É necessário selecionar uma chave API para gerar imagens de alta qualidade." }));
+      return;
+    }
+
     setWizardState({ step: AppStep.GENERATION, isLoading: true, error: null });
 
     // 1. Trigger Cover Generation (Async, don't await immediately)
@@ -130,7 +163,8 @@ export default function App() {
         
         {/* Error Notification */}
         {wizardState.error && (
-          <div className="max-w-md mx-auto mb-8 p-4 bg-red-50 text-red-700 border border-red-200 rounded-lg">
+          <div className="max-w-md mx-auto mb-8 p-4 bg-red-50 text-red-700 border border-red-200 rounded-lg flex items-center gap-3">
+            <AlertTriangle size={20} />
             {wizardState.error}
           </div>
         )}
@@ -139,10 +173,10 @@ export default function App() {
         {wizardState.step === AppStep.HOME && (
           <div className="max-w-5xl mx-auto px-4 w-full">
             <div className="text-center mb-16 space-y-4">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-full text-sm font-medium">
-                <Star size={16} className="fill-indigo-700" /> Tecnologia Gemini 2.5 & 3 Pro
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-full text-sm font-medium animate-fade-in-up">
+                <Star size={16} className="fill-indigo-700" /> Tecnologia Gemini 3 Pro
               </div>
-              <h1 className="text-4xl md:text-6xl font-bold text-gray-900 tracking-tight">
+              <h1 className="text-4xl md:text-6xl font-bold text-gray-900 tracking-tight leading-tight">
                 Crie Conteúdo Educacional <br/>
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-purple-600">
                   Em Nível Profissional
